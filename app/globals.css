@@ -104,6 +104,10 @@ textarea:focus-visible {
   letter-spacing: 0.02em;
 }
 
+.signout-button {
+  cursor: pointer;
+}
+
 .status-dot,
 .eyebrow > span {
   width: 7px;
@@ -607,6 +611,73 @@ textarea:focus-visible {
 .footer-dot {
   padding: 0 4px;
   color: #aab4aa;
+}
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(100%, 390px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 34px;
+  background: var(--card);
+  box-shadow: 0 14px 42px rgba(40, 54, 43, 0.06);
+}
+
+.login-brand {
+  margin-bottom: 38px;
+}
+
+.login-eyebrow {
+  margin-bottom: 14px;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+}
+
+.login-card > p {
+  margin: 9px 0 23px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.google-button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #dfe4df;
+  border-radius: 8px;
+  color: #303b33;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.google-button:hover {
+  border-color: #bdcbbf;
+  background: #fafcf9;
+}
+
+.login-card .login-footnote {
+  margin: 17px 0 0;
+  color: #909990;
+  font-size: 10px;
 }
 
 @media (max-width: 800px) {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { parseJobPost } from "@/lib/job-post";
 
@@ -130,10 +131,14 @@ export default function Home() {
           <span className="brand-mark">a</span>
           <span>applywise</span>
         </Link>
-        <div className="private-badge">
+        <button
+          className="private-badge signout-button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          type="button"
+        >
           <span className="status-dot" />
-          Private workspace
-        </div>
+          Sign out
+        </button>
       </header>
 
       <section className="intro">
