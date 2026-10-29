@@ -669,6 +669,29 @@ textarea:focus-visible {
   transition: background 0.2s, border-color 0.2s;
 }
 
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+
+.login-form .google-button {
+  margin-top: 3px;
+}
+
+.login-form .google-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.login-error {
+  margin: 0;
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: #8a332f;
+  background: #fcf0ef;
+  font-size: 11px;
+}
+
 .google-button:hover {
   border-color: #bdcbbf;
   background: #fafcf9;

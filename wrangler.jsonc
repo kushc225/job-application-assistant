@@ -5,6 +5,24 @@
   "compatibility_date": "2026-10-29",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
+  "ratelimits": [
+    {
+      "name": "LOGIN_RATE_LIMITER",
+      "namespace_id": "82481931",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    },
+    {
+      "name": "GENERATION_RATE_LIMITER",
+      "namespace_id": "82481932",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

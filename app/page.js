@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { parseJobPost } from "@/lib/job-post";
 
@@ -31,6 +31,7 @@ function getServerProfile() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [jobPost, setJobPost] = useState("");
   const savedProfile = useSyncExternalStore(
     subscribeToProfile,
@@ -124,6 +125,19 @@ export default function Home() {
     }
   }
 
+  async function handleSignOut() {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      setStatus("Could not sign out. Please try again.");
+      return;
+    }
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -133,7 +147,7 @@ export default function Home() {
         </Link>
         <button
           className="private-badge signout-button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
           type="button"
         >
           <span className="status-dot" />

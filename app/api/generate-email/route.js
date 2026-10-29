@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { redactContactDetails } from "@/lib/job-post";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const MAX_JOB_LENGTH = 20000;
 const MAX_PROFILE_LENGTH = 4000;
@@ -28,6 +29,13 @@ export async function POST(request) {
       { status: 503 },
     );
   }
+
+  const rateLimitResponse = await enforceRateLimit(
+    request,
+    "GENERATION_RATE_LIMITER",
+    "Too many drafts requested. Wait a minute before trying again.",
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   let rawBody;
   try {
