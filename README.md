@@ -130,6 +130,9 @@ default. Keep the key from Google AI Studio stored only as the
 `GEMINI_API_KEY` Worker secret. If `GEMINI_MODEL` is set in the Worker
 environment, make sure it names a model available to your project and
 supported by the [Interactions API](https://ai.google.dev/gemini-api/docs/interactions).
+If the primary model returns a temporary HTTP 503, the app tries
+`gemini-3.6-flash` once and indicates in the UI when that fallback produced the
+draft. If both models are busy, wait briefly and try again.
 
 ## Current scope
 

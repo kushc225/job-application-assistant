@@ -156,7 +156,11 @@ export default function Home() {
       }
 
       setEmailBody(result.body);
-      setStatus("Draft generated. Review and edit it before using it.");
+      setStatus(
+        result.usedFallback
+          ? "Gemini’s primary model was busy, so the draft was generated with a fallback model. Review and edit it before using it."
+          : "Draft generated. Review and edit it before using it.",
+      );
     } catch (error) {
       setStatus(error.message);
     } finally {

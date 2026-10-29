@@ -5,6 +5,7 @@ import { formatGeminiError } from "@/lib/gemini-error";
 import {
   buildGeminiInteractionInput,
   extractGeminiInteractionText,
+  fetchGeminiWithFallback,
 } from "@/lib/gemini-interactions";
 
 const MAX_JOB_LENGTH = 20000;
@@ -81,32 +82,19 @@ export async function POST(request) {
 
   const sanitizedJob = redactContactDetails(jobDescription).slice(0, MAX_JOB_LENGTH);
   const sanitizedHighlights = redactContactDetails(profileHighlights).slice(0, MAX_PROFILE_LENGTH);
+  const input = buildGeminiInteractionInput({
+    role,
+    company,
+    profileHighlights: sanitizedHighlights,
+    jobDescription: sanitizedJob,
+  });
   let upstream;
+  let usedFallback = false;
   try {
-    upstream = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/interactions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          model,
-          input: buildGeminiInteractionInput({
-            role,
-            company,
-            profileHighlights: sanitizedHighlights,
-            jobDescription: sanitizedJob,
-          }),
-          generation_config: {
-            max_output_tokens: 400,
-            temperature: 0.6,
-          },
-          store: false,
-        }),
-      },
-    );
+    ({ response: upstream, usedFallback } = await fetchGeminiWithFallback(
+      (requestedModel) => requestGemini(apiKey, requestedModel, input),
+      model,
+    ));
   } catch {
     return jsonResponse(
       { error: "Could not reach Gemini. Check the deployment’s network configuration and try again." },
@@ -163,5 +151,24 @@ export async function POST(request) {
     );
   }
 
-  return jsonResponse({ body });
+  return jsonResponse({ body, usedFallback });
+}
+
+function requestGemini(apiKey, model, input) {
+  return fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      model,
+      input,
+      generation_config: {
+        max_output_tokens: 400,
+        temperature: 0.6,
+      },
+      store: false,
+    }),
+  });
 }
