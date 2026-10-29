@@ -49,5 +49,7 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/auth/login|api/auth/logout).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|login|api/auth/login|api/auth/logout|api/gmail/callback).*)",
+  ],
 };

@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { parseJobPost } from "@/lib/job-post";
 
 const PROFILE_KEY = "job-assistant-profile-v1";
 const PROFILE_UPDATED_EVENT = "applywise-profile-updated";
 const EMPTY_PROFILE = { name: "", email: "", highlights: "" };
+const GMAIL_MESSAGES = {
+  connected: "Gmail connected. Review your draft before sending.",
+  cancelled: "Gmail connection was cancelled.",
+  "wrong-account": "Connect the expected Google account: kushc225@gmail.com.",
+  "wrong-account-revoke-failed": "Wrong account selected. Revoke Applywise access in Google Account security, then reconnect with kushc225@gmail.com.",
+  error: "Gmail could not be connected. Check the setup and try again.",
+};
 
 function subscribeToProfile(onChange) {
   window.addEventListener("storage", onChange);
@@ -30,6 +37,19 @@ function getServerProfile() {
   return "{}";
 }
 
+function subscribeToLocation(onChange) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function getLocationSearch() {
+  return window.location.search;
+}
+
+function getServerLocationSearch() {
+  return "";
+}
+
 export default function Home() {
   const router = useRouter();
   const [jobPost, setJobPost] = useState("");
@@ -38,6 +58,13 @@ export default function Home() {
     getStoredProfile,
     getServerProfile,
   );
+  const locationSearch = useSyncExternalStore(
+    subscribeToLocation,
+    getLocationSearch,
+    getServerLocationSearch,
+  );
+  const gmailResult = new URLSearchParams(locationSearch).get("gmail");
+  const gmailNotice = GMAIL_MESSAGES[gmailResult];
   const profile = useMemo(() => {
     try {
       return { ...EMPTY_PROFILE, ...JSON.parse(savedProfile) };
@@ -50,6 +77,30 @@ export default function Home() {
   const [subjectOverride, setSubjectOverride] = useState("");
   const [status, setStatus] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [gmailConfigured, setGmailConfigured] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/gmail/status", { cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not check Gmail status.");
+        if (active) {
+          setGmailConfigured(result.configured);
+          setGmailConnected(result.connected);
+        }
+      })
+      .catch((error) => {
+        if (active) setStatus(error.message);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const job = useMemo(() => parseJobPost(jobPost), [jobPost]);
   const suggestedSubject = job.role
@@ -122,6 +173,57 @@ export default function Home() {
       setStatus("Draft copied. Paste it into Gmail and attach your resume.");
     } catch {
       setStatus("Could not access the clipboard. Select and copy the draft manually.");
+    }
+  }
+
+  async function sendEmail() {
+    if (!recipient || !subject.trim() || !emailBody.trim()) {
+      setStatus("Add an application email and check the subject and message first.");
+      return;
+    }
+    if (!window.confirm(
+      `Send this email from kushc225@gmail.com to ${recipient}?\n\nSubject: ${subject}`,
+    )) {
+      return;
+    }
+
+    setIsSending(true);
+    setStatus("");
+    const signature = [profile.name, profile.email].filter(Boolean).join("\n");
+    const signoff = signature ? `\n\nBest,\n${signature}` : "";
+    try {
+      const response = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: recipient, subject, body: `${emailBody}${signoff}` }),
+      });
+      const result = await response.json();
+      if (response.status === 401) setGmailConnected(false);
+      if (!response.ok) throw new Error(result.error || "Could not send the email.");
+      setStatus("Email sent. Check your Gmail Sent folder.");
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function disconnectGmail() {
+    if (!window.confirm("Disconnect Gmail and revoke this app’s Gmail access?")) return;
+    setIsDisconnecting(true);
+    try {
+      const response = await fetch("/api/gmail/disconnect", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not disconnect Gmail.");
+      setGmailConnected(false);
+      setStatus("Gmail disconnected and access revoked.");
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setIsDisconnecting(false);
     }
   }
 
@@ -299,6 +401,31 @@ export default function Home() {
             <span className="draft-status">{emailBody ? "READY TO REVIEW" : "WAITING"}</span>
           </div>
 
+          <div className="gmail-connection">
+            <div>
+              <span className="field-label">GMAIL SENDER</span>
+              <p className="gmail-account">
+                {gmailConnected ? "Connected: kushc225@gmail.com" : "Not connected"}
+              </p>
+            </div>
+            {gmailConnected ? (
+              <button
+                className="disconnect-button"
+                disabled={isDisconnecting}
+                onClick={disconnectGmail}
+                type="button"
+              >
+                {isDisconnecting ? "Disconnecting…" : "Disconnect"}
+              </button>
+            ) : gmailConfigured ? (
+              <a className="gmail-connect-button" href="/api/gmail/connect">
+                Connect Gmail
+              </a>
+            ) : (
+              <span className="gmail-setup-note">Gmail setup required</span>
+            )}
+          </div>
+
           {emailBody ? (
             <>
               <label className="field-label" htmlFor="email-subject">SUBJECT</label>
@@ -319,9 +446,18 @@ export default function Home() {
               <button className="copy-button" onClick={copyDraft} type="button">
                 Copy email for Gmail <span aria-hidden="true">↗</span>
               </button>
+              <button
+                className="send-button"
+                disabled={!gmailConnected || isSending}
+                onClick={sendEmail}
+                type="button"
+              >
+                {isSending ? "Sending email…" : "Review and send from Gmail"}
+              </button>
               <p className="manual-note">
-                Gmail connection and automatic resume attachment aren’t set up
-                yet. For now, paste the draft into Gmail and attach your PDF.
+                Sending requires your Gmail connection and your confirmation.
+                Resume attachments are not included yet; attach your PDF manually
+                when using Gmail.
               </p>
             </>
           ) : (
@@ -343,6 +479,9 @@ export default function Home() {
 
           {status && (
             <p className="status-message" role="status">{status}</p>
+          )}
+          {!status && gmailNotice && (
+            <p className="status-message" role="status">{gmailNotice}</p>
           )}
         </section>
       </div>

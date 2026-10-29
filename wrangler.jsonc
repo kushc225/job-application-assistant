@@ -21,6 +21,20 @@
         "limit": 20,
         "period": 60
       }
+    },
+    {
+      "name": "GMAIL_SEND_RATE_LIMITER",
+      "namespace_id": "82481933",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "GMAIL_TOKENS",
+      "id": "265d5a72b9634f8c88ee239d133b647d"
     }
   ],
   "assets": {

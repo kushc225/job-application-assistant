@@ -43,19 +43,64 @@ apply; monitor your usage and the Worker size/CPU limits.
 4. Deploy with `npm run deploy`.
 5. Open the Worker URL shown by Wrangler and sign in.
 
-Authentication is handled by the app; no Google OAuth is required. Cloudflare
-stores the credentials as Worker secrets. Login issues an eight-hour,
+The private-workspace login does not use Google OAuth. Cloudflare stores the
+login credentials as Worker secrets. Login issues an eight-hour,
 HMAC-signed `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Only the username
 and password are checked; they are not returned to the browser or stored in
 browser storage. Changing either credential or `AUTH_SECRET` invalidates
 existing sessions.
 
-The Worker config limits login attempts to 5 per minute per IP and email draft
-generation to 20 per minute per IP. Cloudflare's Rate Limiting API is
-approximate and enforced per Cloudflare location, so it is a useful safeguard
-but not a globally strict lockout. Do not reuse this password on another
-service. Cloudflare may require a plan upgrade if usage exceeds Free-plan
-limits; do not enable paid billing if zero cost is a hard requirement.
+## Gmail sending setup
+
+The private-app username/password remains separate from Google authorization.
+To send mail, the app requests a Google OAuth grant for the Gmail send scope and
+the account email. It verifies that the authorized account is
+`kushc225@gmail.com`. It never sends automatically: review the recipient,
+subject, and body, then choose **Review and send from Gmail** and confirm.
+
+1. In Google Cloud Console, select the project, enable the **Gmail API**, and
+   configure the OAuth consent screen. Add `kushc225@gmail.com` as a test user
+   while the app is in Testing.
+2. Create an OAuth client ID with application type **Web application**. Add this
+   exact Authorized redirect URI:
+   `https://job-application-assistant.kushc225.workers.dev/api/gmail/callback`
+3. Add the OAuth client ID and secret to the Worker:
+
+   ```sh
+   npx wrangler secret put GOOGLE_CLIENT_ID
+   npx wrangler secret put GOOGLE_CLIENT_SECRET
+   ```
+
+4. Generate a separate encryption secret locally and save it as a Worker secret:
+
+   ```sh
+   openssl rand -base64 32
+   npx wrangler secret put GMAIL_TOKEN_ENCRYPTION_KEY
+   ```
+
+   Enter the generated output at Wrangler's prompt. Never share it or commit it.
+5. Deploy the app with `npm run deploy`, sign in to Applywise, choose
+   **Connect Gmail**, and approve the Google consent screen.
+
+The refresh token is encrypted with AES-GCM before being stored in the
+Cloudflare KV namespace bound to this Worker. Access tokens are short-lived and
+are not stored. Disconnecting revokes the grant with Google and deletes the
+encrypted token. The app asks for send-only mail permission; it does not read
+your inbox. Email content is sent to Google only when you confirm sending.
+
+Google may show an unverified-app warning because this personal app requests a
+Gmail scope. While an external OAuth consent screen remains in Testing, Google
+refresh tokens generally expire after seven days, so you may need to reconnect
+weekly. Publishing or verification can involve additional Google review
+requirements; this app does not require a paid Cloudflare feature for KV's
+small token record, but all provider quotas and plan limits still apply.
+
+The Worker config limits login attempts to 5 per minute per IP, generation to
+20 per minute per IP, and sending to 5 per minute per IP. Cloudflare's Rate
+Limiting API is approximate and enforced per Cloudflare location, so it is a
+safeguard rather than a globally strict lockout. Do not reuse this password on
+another service. Cloudflare may require a plan upgrade if usage exceeds
+Free-plan limits; do not enable paid billing if zero cost is a hard requirement.
 
 ## GitHub deployment
 
@@ -87,8 +132,9 @@ accuracy.
 - Generates an editable email body through Gemini using only supplied profile
   facts and a redacted job post.
 - Copies the email draft to the clipboard.
-- Does not send email or attach a resume automatically yet. Gmail draft creation
-  and resume attachment still require a separate integration.
+- Can send the reviewed plain-text email from the authorized Gmail account after
+  an explicit confirmation.
+- Does not attach a resume; attach your PDF manually in Gmail when needed.
 
 ## Validation
 
