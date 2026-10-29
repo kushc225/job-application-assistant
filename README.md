@@ -125,6 +125,15 @@ points. Names in the post are not reliably redacted, so remove names and other
 personal or sensitive details before generating. Review generated content for
 accuracy.
 
+If generation fails with HTTP 404, the server now displays Google's diagnostic.
+This usually indicates that the configured model ID is unavailable to the
+Gemini Developer API or does not support `generateContent`, rather than proving
+the API key is wrong. The default model is `gemini-2.5-flash`; compare the model
+ID with the [official supported models list](https://ai.google.dev/gemini-api/docs/models).
+If changing it, set `GEMINI_MODEL` in the Worker environment to an exact model
+ID that supports `generateContent`, then redeploy. Keep the key from Google AI
+Studio stored only as the `GEMINI_API_KEY` Worker secret.
+
 ## Current scope
 
 - Extracts common role, company, location, experience, and email fields from

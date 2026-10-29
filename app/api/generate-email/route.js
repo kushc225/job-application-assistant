@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { redactContactDetails } from "@/lib/job-post";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { formatGeminiError } from "@/lib/gemini-error";
 
 const MAX_JOB_LENGTH = 20000;
 const MAX_PROFILE_LENGTH = 4000;
@@ -127,6 +128,14 @@ export async function POST(request) {
   }
 
   if (!upstream.ok) {
+    let upstreamMessage = "";
+    try {
+      const errorResult = await upstream.json();
+      upstreamMessage = errorResult.error?.message || "";
+    } catch {
+      upstreamMessage = "";
+    }
+
     if (upstream.status === 429) {
       return jsonResponse(
         { error: "Gemini’s free-tier limit was reached. Wait for the quota to reset, then try again." },
@@ -139,8 +148,14 @@ export async function POST(request) {
         { status: 502 },
       );
     }
+    if (upstream.status === 404) {
+      return jsonResponse(
+        { error: formatGeminiError(upstream.status, model, upstreamMessage) },
+        { status: 502 },
+      );
+    }
     return jsonResponse(
-      { error: `Gemini returned an error (${upstream.status}). Try again later.` },
+      { error: formatGeminiError(upstream.status, model, upstreamMessage) },
       { status: 502 },
     );
   }
