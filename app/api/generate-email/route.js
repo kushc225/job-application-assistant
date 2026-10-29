@@ -6,6 +6,7 @@ import {
   buildGeminiInteractionInput,
   extractGeminiInteractionText,
   fetchGeminiWithFallback,
+  isCompleteEmailBody,
 } from "@/lib/gemini-interactions";
 
 const MAX_JOB_LENGTH = 20000;
@@ -144,9 +145,9 @@ export async function POST(request) {
 
   const body = extractGeminiInteractionText(result);
 
-  if (!body) {
+  if (!isCompleteEmailBody(body)) {
     return jsonResponse(
-      { error: "Gemini did not return an email draft. Try editing the job post and retry." },
+      { error: "Gemini returned an incomplete email draft. Please try generating again; no incomplete text was returned as a usable draft." },
       { status: 502 },
     );
   }
@@ -165,8 +166,9 @@ function requestGemini(apiKey, model, input) {
       model,
       input,
       generation_config: {
-        max_output_tokens: 400,
+        max_output_tokens: 900,
         temperature: 0.6,
+        thinking_level: "low",
       },
       store: false,
     }),
