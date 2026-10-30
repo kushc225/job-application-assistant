@@ -7,7 +7,9 @@ import {
   extractGroqChatText,
   fetchGroqWithRetry,
   GROQ_MODEL,
+  GROQ_MAX_COMPLETION_TOKENS,
   GROQ_REQUEST_TIMEOUT_MS,
+  getGroqFinishReason,
   isGroqTimeoutError,
   isCompleteEmailBody,
 } from "@/lib/groq-chat";
@@ -153,6 +155,13 @@ export async function POST(request) {
 
   const body = extractGroqChatText(result);
 
+  if (getGroqFinishReason(result) === "length") {
+    return jsonResponse(
+      { error: "Groq reached its response limit before finishing the draft. Please try generating again." },
+      { status: 502 },
+    );
+  }
+
   if (!isCompleteEmailBody(body)) {
     return jsonResponse(
       { error: "Groq returned an incomplete email draft. Please try generating again; no incomplete text was returned as a usable draft." },
@@ -173,7 +182,9 @@ function requestGroq(apiKey, model, messages) {
     body: JSON.stringify({
       model,
       messages,
-      max_tokens: 450,
+      max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
+      reasoning_effort: "low",
+      include_reasoning: false,
       temperature: 0.4,
     }),
     signal: AbortSignal.timeout(GROQ_REQUEST_TIMEOUT_MS),

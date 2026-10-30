@@ -146,7 +146,9 @@ current browser’s local storage.
 
 The app uses Groq's OpenAI-compatible Chat Completions API with
 `openai/gpt-oss-120b` by default. Each request has a 30-second timeout, and an
-HTTP 503 is retried once after a one-second pause. Keep the Groq API key stored
+HTTP 503 is retried once after a one-second pause. GPT-OSS generation uses low
+reasoning effort and a 1,200-token completion budget so internal reasoning
+doesn't consume the former small output limit. Keep the Groq API key stored
 only as the `GROQ_API_KEY` Worker secret. If `GROQ_MODEL` is set in the Worker
 environment, make sure it names a model available to your Groq account. Groq's
 current privacy and data-use terms apply to the job post and proof points sent
