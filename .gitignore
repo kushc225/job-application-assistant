@@ -25,6 +25,7 @@
 # misc
 .DS_Store
 *.pem
+/private/Kush_Resume_2026.pdf
 
 # debug
 npm-debug.log*

@@ -55,8 +55,9 @@ existing sessions.
 The private-app username/password remains separate from Google authorization.
 To send mail, the app requests a Google OAuth grant for the Gmail send scope and
 the account email. It verifies that the authorized account is
-`kushc225@gmail.com`. It never sends automatically: review the recipient,
-subject, and body, then choose **Review and send from Gmail** and confirm.
+`kushc225@gmail.com`. Review the recipient, subject, and body in the app, then
+click **Send email now**; that click sends immediately without another
+confirmation prompt.
 
 1. In Google Cloud Console, select the project, enable the **Gmail API**, and
    configure the OAuth consent screen. Add `kushc225@gmail.com` as a test user
@@ -79,14 +80,25 @@ subject, and body, then choose **Review and send from Gmail** and confirm.
    ```
 
    Enter the generated output at Wrangler's prompt. Never share it or commit it.
-5. Deploy the app with `npm run deploy`, sign in to Applywise, choose
+5. Upload the resume to the existing private KV namespace from the app
+   directory:
+
+   ```sh
+   npx wrangler kv key put resume:Kush_Resume_2026.pdf --binding GMAIL_TOKENS --path private/Kush_Resume_2026.pdf
+   ```
+
+   The local PDF is kept outside `public/` and ignored by Git. This KV entry is
+   used only as the email attachment.
+6. Deploy the app with `npm run deploy`, sign in to Applywise, choose
    **Connect Gmail**, and approve the Google consent screen.
 
 The refresh token is encrypted with AES-GCM before being stored in the
 Cloudflare KV namespace bound to this Worker. Access tokens are short-lived and
-are not stored. Disconnecting revokes the grant with Google and deletes the
-encrypted token. The app asks for send-only mail permission; it does not read
-your inbox. Email content is sent to Google only when you confirm sending.
+are not stored. The resume PDF is stored in the same private KV namespace under
+a separate key and is attached to each email sent from the app. Disconnecting
+revokes the grant with Google and deletes the encrypted token. The app asks for
+send-only mail permission; it does not read your inbox. Email content and the
+resume are sent to Gmail only when you click **Send email now**.
 
 Google may show an unverified-app warning because this personal app requests a
 Gmail scope. While an external OAuth consent screen remains in Testing, Google
@@ -116,8 +128,10 @@ The Gemini API key is used only by the server route. The user’s name and email
 the detected application email, and the resume are not sent to Gemini. The job
 post has email addresses, URLs, and phone numbers redacted before the model call;
 the user-provided skills and proof points are sent as prompt context. The app
-does not store job posts or generated emails on the server. Profile name, email,
-and proof points are saved in the current browser’s local storage.
+does not store job posts or generated emails on the server. The resume stays in
+private Cloudflare KV and is sent only to Gmail when you click **Send email now**.
+Profile name, email, and proof points are saved in the current browser’s local
+storage.
 
 Google’s unpaid-service terms may allow submitted content to be used to improve
 Google products. Do not put sensitive or confidential details in the proof
@@ -142,9 +156,9 @@ supported by the [Interactions API](https://ai.google.dev/gemini-api/docs/intera
 - Generates an editable email body through Gemini using only supplied profile
   facts and a redacted job post.
 - Copies the email draft to the clipboard.
-- Can send the reviewed plain-text email from the authorized Gmail account after
-  an explicit confirmation.
-- Does not attach a resume; attach your PDF manually in Gmail when needed.
+- Adds the phone number `9608812837` to the email sign-off.
+- Sends the reviewed email from the authorized Gmail account with the resume PDF
+  attached when you click **Send email now**.
 
 ## Validation
 

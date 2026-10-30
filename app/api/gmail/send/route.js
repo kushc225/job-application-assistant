@@ -6,6 +6,7 @@ import {
   decryptRefreshToken,
   getGmailConfig,
   GMAIL_TOKEN_KEY,
+  GMAIL_RESUME_KEY,
   isGmailConfigurationValid,
   isValidEmail,
   refreshGmailAccessToken,
@@ -75,6 +76,13 @@ export async function POST(request) {
     if (!encryptedToken) {
       return jsonResponse({ error: "Connect Gmail before sending an email." }, 409);
     }
+    const resume = await env.GMAIL_TOKENS.get(GMAIL_RESUME_KEY, { type: "arrayBuffer" });
+    if (!resume) {
+      return jsonResponse(
+        { error: "Resume attachment is not set up yet. Upload Kush_Resume_2026.pdf to private Cloudflare KV." },
+        503,
+      );
+    }
 
     const refreshToken = await decryptRefreshToken(
       encryptedToken,
@@ -102,7 +110,16 @@ export async function POST(request) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            raw: createRawEmail({ to, subject: subject.trim(), body }),
+            raw: createRawEmail({
+              to,
+              subject: subject.trim(),
+              body,
+              attachment: {
+                filename: "Kush_Resume_2026.pdf",
+                contentType: "application/pdf",
+                data: new Uint8Array(resume),
+              },
+            }),
           }),
         },
       );

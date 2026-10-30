@@ -8,6 +8,7 @@ import { parseJobPost } from "@/lib/job-post";
 const PROFILE_KEY = "job-assistant-profile-v1";
 const PROFILE_UPDATED_EVENT = "applywise-profile-updated";
 const EMPTY_PROFILE = { name: "", email: "", highlights: "" };
+const PHONE_NUMBER = "9608812837";
 const GMAIL_MESSAGES = {
   connected: "Gmail connected. Review your draft before sending.",
   cancelled: "Gmail connection was cancelled.",
@@ -169,12 +170,12 @@ export default function Home() {
   }
 
   async function copyDraft() {
-    const signature = [profile.name, profile.email].filter(Boolean).join("\n");
+    const signature = [profile.name, profile.email, PHONE_NUMBER].filter(Boolean).join("\n");
     const signoff = signature ? `\n\nBest,\n${signature}` : "";
     const fullDraft = `To: ${recipient || "add recipient"}\nSubject: ${subject}\n\n${emailBody}${signoff}`;
     try {
       await navigator.clipboard.writeText(fullDraft);
-      setStatus("Draft copied. Paste it into Gmail and attach your resume.");
+      setStatus("Draft copied. Add your resume attachment manually when sending from Gmail.");
     } catch {
       setStatus("Could not access the clipboard. Select and copy the draft manually.");
     }
@@ -185,15 +186,9 @@ export default function Home() {
       setStatus("Add an application email and check the subject and message first.");
       return;
     }
-    if (!window.confirm(
-      `Send this email from kushc225@gmail.com to ${recipient}?\n\nSubject: ${subject}`,
-    )) {
-      return;
-    }
-
     setIsSending(true);
     setStatus("");
-    const signature = [profile.name, profile.email].filter(Boolean).join("\n");
+    const signature = [profile.name, profile.email, PHONE_NUMBER].filter(Boolean).join("\n");
     const signoff = signature ? `\n\nBest,\n${signature}` : "";
     try {
       const response = await fetch("/api/gmail/send", {
@@ -400,7 +395,7 @@ export default function Home() {
             <div className="step">03</div>
             <div>
               <h2>Your email draft</h2>
-              <p>Nothing is sent automatically.</p>
+              <p>Check the recipient and message, then send it with one click.</p>
             </div>
             <span className="draft-status">{emailBody ? "READY TO REVIEW" : "WAITING"}</span>
           </div>
@@ -446,7 +441,12 @@ export default function Home() {
                 onChange={(event) => setEmailBody(event.target.value)}
                 value={emailBody}
               />
-              {profile.name && <div className="signoff-preview">Best,<br />{profile.name}</div>}
+              <div className="signoff-preview">
+                Best,<br />
+                {profile.name && <>{profile.name}<br /></>}
+                {profile.email && <>{profile.email}<br /></>}
+                {PHONE_NUMBER}
+              </div>
               <button className="copy-button" onClick={copyDraft} type="button">
                 Copy email for Gmail <span aria-hidden="true">↗</span>
               </button>
@@ -456,12 +456,11 @@ export default function Home() {
                 onClick={sendEmail}
                 type="button"
               >
-                {isSending ? "Sending email…" : "Review and send from Gmail"}
+                {isSending ? "Sending email…" : "Send email now"}
               </button>
               <p className="manual-note">
-                Sending requires your Gmail connection and your confirmation.
-                Resume attachments are not included yet; attach your PDF manually
-                when using Gmail.
+                Clicking Send email now sends this message from Gmail to{" "}
+                {recipient || "the recipient above"} with your resume attached.
               </p>
             </>
           ) : (
