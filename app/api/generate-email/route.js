@@ -6,6 +6,8 @@ import {
   buildGeminiInteractionInput,
   extractGeminiInteractionText,
   fetchGeminiWithFallback,
+  GEMINI_REQUEST_TIMEOUT_MS,
+  isGeminiTimeoutError,
   isCompleteEmailBody,
 } from "@/lib/gemini-interactions";
 
@@ -96,7 +98,13 @@ export async function POST(request) {
       (requestedModel) => requestGemini(apiKey, requestedModel, input),
       model,
     ));
-  } catch {
+  } catch (error) {
+    if (isGeminiTimeoutError(error)) {
+      return jsonResponse(
+        { error: "Gemini took too long to respond. Please try again in a moment." },
+        { status: 504 },
+      );
+    }
     return jsonResponse(
       { error: "Could not reach Gemini. Check the deployment’s network configuration and try again." },
       { status: 502 },
@@ -166,11 +174,12 @@ function requestGemini(apiKey, model, input) {
       model,
       input,
       generation_config: {
-        max_output_tokens: 900,
+        max_output_tokens: 450,
         temperature: 0.6,
         thinking_level: "low",
       },
       store: false,
     }),
+    signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
   });
 }
