@@ -1,14 +1,14 @@
 # Applywise
 
 A private, single-user Next.js app that reads a pasted job post, extracts common
-details in the browser, and asks Gemini to draft a truthful, role-aware email.
+details in the browser, and asks Groq to draft a truthful, role-aware email.
 
 ## Local development
 
 1. Copy `.env.example` to `.env.local`.
 2. Set `AUTH_LOCAL_DEV_BYPASS=true` in `.env.local` for local development only.
    Never set it on a deployment.
-3. Set `GEMINI_API_KEY` to a Gemini API key. Keep it private; do not use a
+3. Set `GROQ_API_KEY` to a Groq API key. Keep it private; do not use a
    `NEXT_PUBLIC_` prefix or commit `.env.local`.
 4. Run `npm run dev` and open <http://localhost:3000>. The explicit bypass
    skips login only on the local development server; do not use it to test
@@ -34,8 +34,19 @@ apply; monitor your usage and the Worker size/CPU limits.
    npx wrangler secret put APP_USERNAME
    npx wrangler secret put APP_PASSWORD
    npx wrangler secret put AUTH_SECRET
-   npx wrangler secret put GEMINI_API_KEY
+   npx wrangler secret put GROQ_API_KEY
    ```
+
+   For an existing Gemini deployment, remove the old key before deploying,
+   then run the `GROQ_API_KEY` command above and enter a newly generated key:
+
+   ```sh
+   npx wrangler secret delete GEMINI_API_KEY
+   ```
+
+   Enter the new Groq key only at Wrangler's hidden prompt; do not put it in a
+   command, source file, or chat. The app defaults to `openai/gpt-oss-120b`.
+   If you need a different model, set `GROQ_MODEL` as a Worker variable.
 
    Use a username of 3-128 characters, a unique password of at least 14
    characters, and a session-signing secret of at least 32 characters. Generate
@@ -122,38 +133,32 @@ Builds to use `npm run deploy` on `main`. Add credentials only through
 Cloudflare Worker secrets, never as GitHub source files or repository
 variables.
 
-## Gemini and privacy
+## Groq and privacy
 
-The Gemini API key is used only by the server route. The user’s name and email,
-the detected application email, and the resume are not sent to Gemini. The job
-post has email addresses, URLs, and phone numbers redacted before the model call;
-the user-provided skills and proof points are sent as prompt context. The app
-does not store job posts or generated emails on the server. The resume stays in
-private Cloudflare KV and is sent only to Gmail when you click **Send email now**.
-Profile name, email, and proof points are saved in the current browser’s local
-storage.
+The Groq API key is used only by the server route. The user’s name and email,
+the detected application email, and the resume are not sent to Groq. The job
+post has email addresses, URLs, and phone numbers redacted before the model
+call; the user-provided skills and proof points are sent as prompt context. The
+app does not store job posts or generated emails on the server. The resume
+stays in private Cloudflare KV and is sent only to Gmail when you click
+**Send email now**. Profile name, email, and proof points are saved in the
+current browser’s local storage.
 
-Google’s unpaid-service terms may allow submitted content to be used to improve
-Google products. Do not put sensitive or confidential details in the proof
-points. Names in the post are not reliably redacted, so remove names and other
-personal or sensitive details before generating. Review generated content for
-accuracy.
-
-The app uses Google's recommended Interactions API with `gemini-3.8-flash` by
-default. Each model request has a 30-second timeout. If the primary request
-times out, or returns HTTP 503 twice (with a one-second pause before retry),
-the app tries `gemini-3.6-flash` once and indicates in the UI when that fallback
-produced the draft. If both models are busy or time out, wait briefly and try
-again. Keep the key from Google AI Studio stored only as the
-`GEMINI_API_KEY` Worker secret. If `GEMINI_MODEL` is set in the Worker
-environment, make sure it names a model available to your project and
-supported by the [Interactions API](https://ai.google.dev/gemini-api/docs/interactions).
+The app uses Groq's OpenAI-compatible Chat Completions API with
+`openai/gpt-oss-120b` by default. Each request has a 30-second timeout, and an
+HTTP 503 is retried once after a one-second pause. Keep the Groq API key stored
+only as the `GROQ_API_KEY` Worker secret. If `GROQ_MODEL` is set in the Worker
+environment, make sure it names a model available to your Groq account. Groq's
+current privacy and data-use terms apply to the job post and proof points sent
+for generation; avoid sensitive details and review generated drafts for
+accuracy. Names in pasted post text are not reliably removed, so remove
+personal or sensitive details before generating.
 
 ## Current scope
 
 - Extracts common role, company, location, experience, and email fields from
   pasted job posts; fields remain editable.
-- Generates an editable email body through Gemini using only supplied profile
+- Generates an editable email body through Groq using only supplied profile
   facts and a redacted job post.
 - Copies the email draft to the clipboard.
 - Adds the phone number `9608812837` to the email sign-off.

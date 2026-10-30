@@ -158,9 +158,7 @@ export default function Home() {
 
       setEmailBody(result.body);
       setStatus(
-        result.usedFallback
-          ? "Gemini’s primary model was busy, so the draft was generated with a fallback model. Review and edit it before using it."
-          : "Draft generated. Review and edit it before using it.",
+        "Draft generated. Review and edit it before using it.",
       );
     } catch (error) {
       setStatus(error.message);
@@ -353,7 +351,7 @@ export default function Home() {
               </label>
               <label className="form-field profile-wide">
                 <span className="field-label">
-                  SKILLS & PROOF POINTS <span className="sent-tag">SENT TO GEMINI</span>
+                  SKILLS & PROOF POINTS <span className="sent-tag">SENT TO GROQ</span>
                 </span>
                 <textarea
                   className="highlights-input"
@@ -364,7 +362,7 @@ export default function Home() {
                 />
                 <span className="helper-text">
                   Only this experience text—not your name, email, resume, or
-                  application contact—is sent to Gemini with a redacted job post.
+                  application contact—is sent to Groq with a redacted job post.
                   Names in pasted post text are not reliably removed; delete
                   personal or sensitive details before generating.
                 </span>
@@ -384,9 +382,8 @@ export default function Home() {
             )}
           </button>
           <p className="privacy-note">
-            The Gemini free tier may use submitted content to improve Google
-            products. Avoid sensitive information. You review every draft before
-            sending.
+            Groq receives the profile facts you provide and a redacted job post.
+            Avoid sensitive information. You review every draft before sending.
           </p>
         </form>
 

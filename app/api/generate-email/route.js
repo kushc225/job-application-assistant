@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { redactContactDetails } from "@/lib/job-post";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { formatGeminiError } from "@/lib/gemini-error";
+import { formatGroqError } from "@/lib/groq-error";
 import {
-  buildGeminiInteractionInput,
-  extractGeminiInteractionText,
-  fetchGeminiWithFallback,
-  GEMINI_REQUEST_TIMEOUT_MS,
-  isGeminiTimeoutError,
+  buildGroqMessages,
+  extractGroqChatText,
+  fetchGroqWithRetry,
+  GROQ_MODEL,
+  GROQ_REQUEST_TIMEOUT_MS,
+  isGroqTimeoutError,
   isCompleteEmailBody,
-} from "@/lib/gemini-interactions";
+} from "@/lib/groq-chat";
 
 const MAX_JOB_LENGTH = 20000;
 const MAX_PROFILE_LENGTH = 4000;
@@ -22,8 +23,8 @@ function jsonResponse(body, init) {
 }
 
 export async function POST(request) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const apiKey = process.env.GROQ_API_KEY;
+  const model = process.env.GROQ_MODEL || GROQ_MODEL;
 
   if (!request.headers.get("content-type")?.includes("application/json")) {
     return jsonResponse({ error: "Content-Type must be application/json." }, { status: 415 });
@@ -34,7 +35,7 @@ export async function POST(request) {
 
   if (!apiKey) {
     return jsonResponse(
-      { error: "Gemini isn’t configured yet. Add GEMINI_API_KEY as a server secret." },
+      { error: "Groq isn’t configured yet. Add GROQ_API_KEY as a server secret." },
       { status: 503 },
     );
   }
@@ -85,28 +86,27 @@ export async function POST(request) {
 
   const sanitizedJob = redactContactDetails(jobDescription).slice(0, MAX_JOB_LENGTH);
   const sanitizedHighlights = redactContactDetails(profileHighlights).slice(0, MAX_PROFILE_LENGTH);
-  const input = buildGeminiInteractionInput({
+  const messages = buildGroqMessages({
     role,
     company,
     profileHighlights: sanitizedHighlights,
     jobDescription: sanitizedJob,
   });
   let upstream;
-  let usedFallback = false;
   try {
-    ({ response: upstream, usedFallback } = await fetchGeminiWithFallback(
-      (requestedModel) => requestGemini(apiKey, requestedModel, input),
+    upstream = await fetchGroqWithRetry(
+      () => requestGroq(apiKey, model, messages),
       model,
-    ));
+    );
   } catch (error) {
-    if (isGeminiTimeoutError(error)) {
+    if (isGroqTimeoutError(error)) {
       return jsonResponse(
-        { error: "Gemini took too long to respond. Please try again in a moment." },
+        { error: "Groq took too long to respond. Please try again in a moment." },
         { status: 504 },
       );
     }
     return jsonResponse(
-      { error: "Could not reach Gemini. Check the deployment’s network configuration and try again." },
+      { error: "Could not reach Groq. Check the deployment’s network configuration and try again." },
       { status: 502 },
     );
   }
@@ -122,24 +122,24 @@ export async function POST(request) {
 
     if (upstream.status === 429) {
       return jsonResponse(
-        { error: "Gemini’s free-tier limit was reached. Wait for the quota to reset, then try again." },
+        { error: "Groq’s rate or usage limit was reached. Check your Groq limits, then try again." },
         { status: 429 },
       );
     }
     if (upstream.status === 401 || upstream.status === 403) {
       return jsonResponse(
-        { error: "Gemini rejected the configured API key. Check that the key and project are correct." },
+        { error: "Groq rejected the configured API key. Check that the key is valid." },
         { status: 502 },
       );
     }
     if (upstream.status === 404) {
       return jsonResponse(
-        { error: formatGeminiError(upstream.status, model, upstreamMessage) },
+        { error: formatGroqError(upstream.status, model, upstreamMessage) },
         { status: 502 },
       );
     }
     return jsonResponse(
-      { error: formatGeminiError(upstream.status, model, upstreamMessage) },
+      { error: formatGroqError(upstream.status, model, upstreamMessage) },
       { status: 502 },
     );
   }
@@ -148,38 +148,34 @@ export async function POST(request) {
   try {
     result = await upstream.json();
   } catch {
-    return jsonResponse({ error: "Gemini returned an unreadable response." }, { status: 502 });
+    return jsonResponse({ error: "Groq returned an unreadable response." }, { status: 502 });
   }
 
-  const body = extractGeminiInteractionText(result);
+  const body = extractGroqChatText(result);
 
   if (!isCompleteEmailBody(body)) {
     return jsonResponse(
-      { error: "Gemini returned an incomplete email draft. Please try generating again; no incomplete text was returned as a usable draft." },
+      { error: "Groq returned an incomplete email draft. Please try generating again; no incomplete text was returned as a usable draft." },
       { status: 502 },
     );
   }
 
-  return jsonResponse({ body, usedFallback });
+  return jsonResponse({ body });
 }
 
-function requestGemini(apiKey, model, input) {
-  return fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+function requestGroq(apiKey, model, messages) {
+  return fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
-      input,
-      generation_config: {
-        max_output_tokens: 450,
-        temperature: 0.6,
-        thinking_level: "low",
-      },
-      store: false,
+      messages,
+      max_tokens: 450,
+      temperature: 0.4,
     }),
-    signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(GROQ_REQUEST_TIMEOUT_MS),
   });
 }
